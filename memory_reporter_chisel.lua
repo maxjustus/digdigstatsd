@@ -87,4 +87,6 @@ function on_interval()
     statsd:gauge(evt, io)
   end
   events = {}
+
+  return true
 end
