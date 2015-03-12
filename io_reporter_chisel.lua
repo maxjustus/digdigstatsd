@@ -13,6 +13,7 @@ function on_init()
   chisel.set_filter("evt.is_io=true and (fd.type=ipv4 or fd.type=ipv6 or fd.type=file)")
 
   fisread = chisel.request_field("evt.is_io_read")
+  procname = chisel.request_field("proc.name")
   fd_type = chisel.request_field("fd.type")
   fd_l4proto = chisel.request_field("fd.l4proto")
   fbytes = chisel.request_field("evt.rawarg.res")
@@ -31,32 +32,16 @@ function on_capture_start()
   return true
 end
 
-function print_process_memory()
-  local info = sysdig.get_machine_info()
-  print(info.hostname)
-  print(info.memory_size_bytes)
-
-  local process = sysdig.get_thread_table()
-  for pid, metadata in pairs(process) do
-    print(metadata.comm)
-    print("vmrss_mb: " .. metadata.vmrss_kb / 1024)
-    -- print_table(metadata)
-  end
-end
-
-function print_table(t)
-  for k,v in pairs(t) do
-    print(k)
-    print(v)
-  end
-end
-
 events = {}
 function on_event()
   local isread = evt.field(fisread)
 
-  local field_name = "write"
-  if isread then field_name = "read" end
+  local field_name = evt.field(procname)
+  if isread then
+    field_name = field_name .. ".read"
+  else
+    field_name = field_name .. ".write"
+  end
 
   local fd_type = evt.field(fd_type)
   if fd_type then
@@ -71,11 +56,10 @@ function on_event()
   local fbytes = evt.field(fbytes)
   if not fbytes then return true end
 
-  local fkbytes = fbytes / 1024
   if events[field_name] then
-    events[field_name] = events[field_name] + fkbytes
+    events[field_name] = events[field_name] + fbytes
   else
-    events[field_name] = fkbytes
+    events[field_name] = fbytes
   end
 end
 
@@ -89,4 +73,11 @@ function on_interval()
   events = {}
 
   return true
+end
+
+function print_table(t)
+  for k,v in pairs(t) do
+    print(k)
+    print(v)
+  end
 end
